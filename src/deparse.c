@@ -1958,6 +1958,8 @@ ch_format_type_extended(Oid type_oid, int32 typemod, uint16 flags) {
     case TIMESTAMPOID:
     case DATEOID:
     case UUIDOID:
+    case JSONOID:
+    case JSONBOID:
     case POINTOID:
     case POLYGONOID:
     case BOXOID:
@@ -1975,9 +1977,6 @@ ch_format_type_extended(Oid type_oid, int32 typemod, uint16 flags) {
         break;
     case TEXTOID:
         buf = pstrdup("String");
-        break;
-    case JSONBOID:
-        buf = pstrdup("JSON");
         break;
 
     /* pg-clickhouse-c reads back LineString as path, but CH < 24.6 lacks it */
