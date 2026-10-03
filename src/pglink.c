@@ -425,29 +425,24 @@ again:
  */
 extern char*
 chfdw_datum_to_ch_literal(Datum value, Oid type) {
+    StringInfoData buf;
+
     if (type_is_array(type)) {
         return chfdw_array_to_ch_literal(value);
     }
 
-    if (chfdw_is_geometric_type(type)) {
-        StringInfoData buf;
-
-        initStringInfo(&buf);
-        chfdw_append_geo_literal(&buf, value, type);
-        return buf.data;
-    }
-
-    if (type == FLOAT4OID || type == FLOAT8OID) {
-        StringInfoData buf;
-
-        initStringInfo(&buf);
-        chfdw_append_float(
-            &buf, type == FLOAT4OID ? DatumGetFloat4(value) : DatumGetFloat8(value)
-        );
+    initStringInfo(&buf);
+    if (pgch_append_geo_literal(&buf, value, type)) {
         return buf.data;
     }
 
     switch (type) {
+    case FLOAT4OID:
+        pgch_append_float_literal(&buf, DatumGetFloat4(value));
+        return buf.data;
+    case FLOAT8OID:
+        pgch_append_float_literal(&buf, DatumGetFloat8(value));
+        return buf.data;
     case BOOLOID:
     case INT2OID:
     case INT4OID:

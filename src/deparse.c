@@ -24,7 +24,6 @@
 #include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
 #include "commands/defrem.h"
-#include "common/shortest_dec.h"
 #include "fmgr.h"
 #include "lib/stringinfo.h"
 #include "miscadmin.h"
@@ -43,13 +42,13 @@
 #include "utils/date.h"
 #include "utils/datetime.h"
 #include "utils/fmgroids.h"
-#include "utils/geo_decls.h"
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 #include "utils/syscache.h"
 #include "utils/typcache.h"
 
 #include "fdw.h"
+#include "pg-clickhouse-encode.h"
 
 /* Aggregate OIDs absent from fmgroids.h on all PG versions. */
 #define F_STRING_AGG_TEXT_TEXT 3538
@@ -1955,17 +1954,16 @@ ch_format_type_extended(Oid type_oid, int32 typemod, uint16 flags) {
         break;
 
     case TIMEOID:
-        buf = psprintf("Time64(%d)", with_typemod ? typemod : 6);
-        break;
-
     case TIMESTAMPTZOID:
-        buf = psprintf("DateTime64(%d, 'UTC')", with_typemod ? typemod : 6);
-        break;
     case TIMESTAMPOID:
-        buf = psprintf("DateTime64(%d)", with_typemod ? typemod : 6);
-        break;
     case DATEOID:
-        buf = pstrdup("Date32");
+    case UUIDOID:
+    case POINTOID:
+    case POLYGONOID:
+    case BOXOID:
+    case CIRCLEOID:
+    case LINEOID:
+        buf = pgch_ch_type_for(type_oid, with_typemod ? typemod : -1, true, NULL);
         break;
 
     case VARCHAROID:
@@ -1978,32 +1976,14 @@ ch_format_type_extended(Oid type_oid, int32 typemod, uint16 flags) {
     case TEXTOID:
         buf = pstrdup("String");
         break;
-    case UUIDOID:
-        buf = pstrdup("UUID");
-        break;
     case JSONBOID:
         buf = pstrdup("JSON");
         break;
 
-    /* Types pg-clickhouse-c reads back into each, LineString needs CH 24.6 */
-    case POINTOID:
-        buf = pstrdup("Point");
-        break;
-    case POLYGONOID:
-        buf = pstrdup("Ring");
-        break;
+    /* pg-clickhouse-c reads back LineString as path, but CH < 24.6 lacks it */
     case PATHOID:
     case LSEGOID:
         buf = pstrdup("Array(Point)");
-        break;
-    case BOXOID:
-        buf = pstrdup("Tuple(Point, Point)");
-        break;
-    case CIRCLEOID:
-        buf = pstrdup("Tuple(Point, Float64)");
-        break;
-    case LINEOID:
-        buf = pstrdup("Tuple(Float64, Float64, Float64)");
         break;
     }
 
@@ -3310,7 +3290,7 @@ emitArrayElement(
         return;
     }
 
-    if (chfdw_append_geo_literal(buf, elt, element_type)) {
+    if (pgch_append_geo_literal(buf, elt, element_type)) {
         return;
     }
 
@@ -3495,113 +3475,6 @@ deparseArray(Datum arr, deparse_expr_cxt* context) {
     }
 }
 
-/* Shortest round-trip form, independent of extra_float_digits */
-void
-chfdw_append_float(StringInfo buf, double v) {
-    char num[DOUBLE_SHORTEST_DECIMAL_LEN];
-
-    if (isnan(v)) {
-        appendStringInfoString(buf, "nan");
-    } else if (isinf(v)) {
-        appendStringInfoString(buf, v < 0 ? "-inf" : "inf");
-    } else if (v == 0 && signbit(v)) {
-        /* SQL -0 is integer zero */
-        appendStringInfoString(buf, "-0.");
-    } else {
-        double_to_shortest_decimal_buf(v, num);
-        appendStringInfoString(buf, num);
-    }
-}
-
-static void
-appendGeoPoint(StringInfo buf, const Point* p) {
-    appendStringInfoChar(buf, '(');
-    chfdw_append_float(buf, p->x);
-    appendStringInfoChar(buf, ',');
-    chfdw_append_float(buf, p->y);
-    appendStringInfoChar(buf, ')');
-}
-
-static void
-appendGeoPoints(StringInfo buf, const Point* p, int npts, bool closed) {
-    appendStringInfoChar(buf, '[');
-    for (int i = 0; i < npts; i++) {
-        if (i > 0) {
-            appendStringInfoChar(buf, ',');
-        }
-        appendGeoPoint(buf, &p[i]);
-    }
-    /* LineString repeating its first point reads back as closed path */
-    if (closed) {
-        appendStringInfoChar(buf, ',');
-        appendGeoPoint(buf, &p[0]);
-    }
-    appendStringInfoChar(buf, ']');
-}
-
-/*
- * Append geometric value in syntax ClickHouse accepts both as SQL literal and
- * as query parameter text, matching ch_format_type_extended's type and
- * pg-clickhouse-c's field order. Return false for non-geometric types.
- */
-bool
-chfdw_append_geo_literal(StringInfo buf, Datum value, Oid type) {
-    switch (type) {
-    case POINTOID:
-        appendGeoPoint(buf, DatumGetPointP(value));
-        return true;
-    case LSEGOID:
-        appendGeoPoints(buf, DatumGetLsegP(value)->p, 2, false);
-        return true;
-    case PATHOID: {
-        PATH* path = DatumGetPathP(value);
-
-        appendGeoPoints(buf, path->p, path->npts, path->closed);
-        return true;
-    }
-    case POLYGONOID: {
-        POLYGON* poly = DatumGetPolygonP(value);
-
-        appendGeoPoints(buf, poly->p, poly->npts, false);
-        return true;
-    }
-    case BOXOID: {
-        BOX* box = DatumGetBoxP(value);
-
-        appendStringInfoChar(buf, '(');
-        appendGeoPoint(buf, &box->high);
-        appendStringInfoChar(buf, ',');
-        appendGeoPoint(buf, &box->low);
-        appendStringInfoChar(buf, ')');
-        return true;
-    }
-    case CIRCLEOID: {
-        CIRCLE* circle = DatumGetCircleP(value);
-
-        appendStringInfoChar(buf, '(');
-        appendGeoPoint(buf, &circle->center);
-        appendStringInfoChar(buf, ',');
-        chfdw_append_float(buf, circle->radius);
-        appendStringInfoChar(buf, ')');
-        return true;
-    }
-    case LINEOID: {
-        LINE* line = DatumGetLineP(value);
-
-        appendStringInfoChar(buf, '(');
-        chfdw_append_float(buf, line->A);
-        appendStringInfoChar(buf, ',');
-        chfdw_append_float(buf, line->B);
-        appendStringInfoChar(buf, ',');
-        chfdw_append_float(buf, line->C);
-        appendStringInfoChar(buf, ')');
-        return true;
-    }
-    default:
-        return false;
-    }
-}
-
 /*
  * Exported function to convert an array to a ClickHouse string literal array.
  */
@@ -3688,7 +3561,7 @@ deparseConst(Const* node, deparse_expr_cxt* context, int showtype) {
     } else if (node->consttype == BYTEAOID) {
         deparseByteaLiteral(buf, node->constvalue);
         goto cleanup;
-    } else if (chfdw_append_geo_literal(buf, node->constvalue, node->consttype)) {
+    } else if (pgch_append_geo_literal(buf, node->constvalue, node->consttype)) {
         goto cleanup;
     } else if (deparseStringDatum(buf, node->constvalue, typoutput)) {
         goto cleanup;
