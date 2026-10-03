@@ -429,6 +429,24 @@ chfdw_datum_to_ch_literal(Datum value, Oid type) {
         return chfdw_array_to_ch_literal(value);
     }
 
+    if (chfdw_is_geometric_type(type)) {
+        StringInfoData buf;
+
+        initStringInfo(&buf);
+        chfdw_append_geo_literal(&buf, value, type);
+        return buf.data;
+    }
+
+    if (type == FLOAT4OID || type == FLOAT8OID) {
+        StringInfoData buf;
+
+        initStringInfo(&buf);
+        chfdw_append_float(
+            &buf, type == FLOAT4OID ? DatumGetFloat4(value) : DatumGetFloat8(value)
+        );
+        return buf.data;
+    }
+
     switch (type) {
     case BOOLOID:
     case INT2OID:
@@ -436,10 +454,6 @@ chfdw_datum_to_ch_literal(Datum value, Oid type) {
         return psprintf("%d", DatumGetInt32(value));
     case INT8OID:
         return psprintf(INT64_FORMAT, DatumGetInt64(value));
-    case FLOAT4OID:
-        return psprintf("%f", DatumGetFloat4(value));
-    case FLOAT8OID:
-        return psprintf("%f", DatumGetFloat8(value));
     case NUMERICOID:
         return DatumGetCString(DirectFunctionCall1(numeric_out, value));
     case BPCHAROID:
@@ -482,11 +496,10 @@ chfdw_datum_to_ch_literal(Datum value, Oid type) {
         return pstrdup(date);
     }
     case TIMEOID: {
-        /* we expect DateTime on other side */
         char time[MAXDATELEN + 1];
 
         chfdw_encode_time(DatumGetTimeADT(value), time);
-        return psprintf("1970-01-01 %s", time);
+        return pstrdup(time);
     }
     case TIMESTAMPOID:
     case TIMESTAMPTZOID: {
@@ -495,6 +508,11 @@ chfdw_datum_to_ch_literal(Datum value, Oid type) {
 
         chfdw_encode_timestamp(DatumGetTimestamp(value), ts);
         return pstrdup(ts);
+    }
+    case INTERVALOID: {
+        Interval* span = DatumGetIntervalP(value);
+
+        return psprintf("(%d,%d," INT64_FORMAT ")", span->month, span->day, span->time);
     }
     default:
         ereport(

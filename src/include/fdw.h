@@ -331,6 +331,10 @@ extern const char*
 chfdw_get_jointype_name(JoinType jointype);
 char*
 chfdw_array_to_ch_literal(Datum arr);
+void
+chfdw_append_float(StringInfo buf, double v);
+bool
+chfdw_append_geo_literal(StringInfo buf, Datum value, Oid type);
 
 /* chfdw_is_equal_op's classification of a comparison operator's name. */
 typedef enum CHEqualOp {
@@ -345,6 +349,8 @@ chfdw_is_equal_op(Oid opno);
 /* in shippable.c */
 extern bool
 chfdw_is_builtin(Oid objectId);
+extern bool
+chfdw_is_geometric_type(Oid type_oid);
 
 /*
  * Connection cache hash table entry
