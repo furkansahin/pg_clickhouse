@@ -2844,9 +2844,10 @@ clickhouseGetForeignUpperPaths(
         return;
     }
 
-    fpinfo                  = (CHFdwRelationInfo*)palloc0(sizeof(CHFdwRelationInfo));
-    fpinfo->pushdown_safe   = false;
-    fpinfo->stage           = stage;
+    fpinfo                = (CHFdwRelationInfo*)palloc0(sizeof(CHFdwRelationInfo));
+    fpinfo->pushdown_safe = false;
+    fpinfo->stage         = stage;
+    // fpinfo->user            = GetUserMapping(input_rel->userid, input_rel->serverid);
     output_rel->fdw_private = fpinfo;
 
     switch (stage) {

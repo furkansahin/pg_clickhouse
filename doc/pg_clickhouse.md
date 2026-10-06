@@ -1842,6 +1842,19 @@ These PostgreSQL aggregate functions pushdown to ClickHouse.
 *   [var_op](https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/varPop)
 *   [var_samp /variance](https://clickhouse.com/docs/sql-reference/aggregate-functions/reference/varSamp)
 
+These PostgreSQL regression aggregate functions pushdown to ClickHouse 26.9
+and later, but stay local to Postgres for earlier ClickHouse versions:
+
+*   regr_avgx
+*   regr_avgy
+*   regr_count
+*   regr_intercept
+*   regr_r2
+*   regr_slope
+*   regr_sxx
+*   regr_sxy
+*   regr_syy
+
 ### Custom Aggregates
 
 These custom aggregate functions created by `pg_clickhouse` provide foreign

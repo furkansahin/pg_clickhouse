@@ -1382,15 +1382,221 @@ FDW options: (database 'agg_test', table_name 'hits', engine 'MergeTree')
      304
 (1 row)
 
--- regr_slope local fallback
-                                  QUERY PLAN                                  
-------------------------------------------------------------------------------
- Aggregate
-   Output: regr_slope((cost)::double precision, (duration)::double precision)
-   ->  Foreign Scan on agg_bin.hits
-         Output: id, uuid, "timestamp", datestamp, path, duration, cost
-         Remote SQL: SELECT duration, cost FROM agg_test.hits
-(5 rows)
+-- regr_slope pushdown
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_slope((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_slope(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+       regr_slope       
+------------------------
+ -0.0004670774096931083
+(1 row)
+
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_slope((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_slope(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+       regr_slope       
+------------------------
+ -0.0004670774096931083
+(1 row)
+
+-- regr_avgy pushdown
+                                                       QUERY PLAN                                                        
+-------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_avgy((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_avgy(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+     regr_avgy     
+-------------------
+ 5.076800000000001
+(1 row)
+
+                                                       QUERY PLAN                                                        
+-------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_avgy((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_avgy(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+     regr_avgy     
+-------------------
+ 5.076800000000001
+(1 row)
+
+-- regr_count pushdown
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_count((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_count(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+ regr_count 
+------------
+         50
+(1 row)
+
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_count((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_count(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+ regr_count 
+------------
+         50
+(1 row)
+
+-- regr_intercept pushdown
+                                                          QUERY PLAN                                                          
+------------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_intercept((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_intercept(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+  regr_intercept   
+-------------------
+ 5.588249763613955
+(1 row)
+
+                                                          QUERY PLAN                                                          
+------------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_intercept((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_intercept(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+  regr_intercept   
+-------------------
+ 5.588249763613955
+(1 row)
+
+-- regr_r2 pushdown
+                                                      QUERY PLAN                                                       
+-----------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_r2((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_r2(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+       regr_r2       
+---------------------
+ 0.10012380893701174
+(1 row)
+
+                                                      QUERY PLAN                                                       
+-----------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_r2((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_r2(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+       regr_r2       
+---------------------
+ 0.10012380893701174
+(1 row)
+
+-- regr_sxx pushdown
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_sxx((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_sxx(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+ regr_sxx  
+-----------
+ 119855636
+(1 row)
+
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_sxx((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_sxx(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+ regr_sxx  
+-----------
+ 119855636
+(1 row)
+
+-- regr_sxy pushdown
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_sxy((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_sxy(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+      regr_sxy      
+--------------------
+ -55981.86000000006
+(1 row)
+
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_sxy((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_sxy(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+      regr_sxy      
+--------------------
+ -55981.86000000006
+(1 row)
+
+-- regr_syy pushdown
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_syy((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_syy(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+     regr_syy      
+-------------------
+ 261.1552879999998
+(1 row)
+
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Foreign Scan
+   Output: (regr_syy((cost)::double precision, (duration)::double precision))
+   Relations: Aggregate on (hits)
+   Remote SQL: SELECT regr_syy(cast(cost, 'Nullable(Float64)'), cast(duration, 'Nullable(Float64)')) FROM agg_test.hits
+(4 rows)
+
+     regr_syy      
+-------------------
+ 261.1552879999998
+(1 row)
 
 -- corr(int, float) corr(float, int)
                                                       QUERY PLAN                                                      

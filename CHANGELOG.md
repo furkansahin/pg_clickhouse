@@ -14,6 +14,19 @@ All notable changes to this project will be documented in this file. It uses the
 *   Changed the default driver from "http" to "binary". Use
     `OPTIONS(driver 'http')` to restore use of the HTTP driver if needed.
 
+### ⚡ Improvements
+
+*   Added pushdown for more regression aggregate functions on ClickHouse 26.9+:
+    *   regr_avgx
+    *   regr_avgy
+    *   regr_count
+    *   regr_intercept
+    *   regr_r2
+    *   regr_slope
+    *   regr_sxx
+    *   regr_sxy
+    *   regr_syy
+
 ### 🚀 Distribution
 
 *   Added Postgres 19beta4 image.
