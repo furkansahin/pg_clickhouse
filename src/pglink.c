@@ -432,16 +432,9 @@ chfdw_datum_to_ch_literal(Datum value, Oid type) {
     }
 
     initStringInfo(&buf);
-    if (pgch_append_geo_literal(&buf, value, type)) {
-        return buf.data;
-    }
-
     switch (type) {
-    case FLOAT4OID:
-        pgch_append_float_literal(&buf, DatumGetFloat4(value));
-        return buf.data;
-    case FLOAT8OID:
-        pgch_append_float_literal(&buf, DatumGetFloat8(value));
+    case POINTOID:
+        chfdw_append_point_literal(&buf, value);
         return buf.data;
     case BOOLOID:
     case INT2OID:
@@ -449,6 +442,12 @@ chfdw_datum_to_ch_literal(Datum value, Oid type) {
         return psprintf("%d", DatumGetInt32(value));
     case INT8OID:
         return psprintf(INT64_FORMAT, DatumGetInt64(value));
+    case FLOAT4OID:
+        chfdw_append_float_literal(&buf, DatumGetFloat4(value));
+        return buf.data;
+    case FLOAT8OID:
+        chfdw_append_float_literal(&buf, DatumGetFloat8(value));
+        return buf.data;
     case NUMERICOID:
         return DatumGetCString(DirectFunctionCall1(numeric_out, value));
     case BPCHAROID:

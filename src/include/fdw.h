@@ -331,6 +331,10 @@ extern const char*
 chfdw_get_jointype_name(JoinType jointype);
 char*
 chfdw_array_to_ch_literal(Datum arr);
+void
+chfdw_append_float_literal(StringInfo buf, double v);
+void
+chfdw_append_point_literal(StringInfo buf, Datum val);
 
 /* chfdw_is_equal_op's classification of a comparison operator's name. */
 typedef enum CHEqualOp {

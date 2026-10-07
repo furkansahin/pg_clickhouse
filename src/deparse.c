@@ -24,6 +24,7 @@
 #include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
 #include "commands/defrem.h"
+#include "common/shortest_dec.h"
 #include "fmgr.h"
 #include "lib/stringinfo.h"
 #include "miscadmin.h"
@@ -42,6 +43,7 @@
 #include "utils/date.h"
 #include "utils/datetime.h"
 #include "utils/fmgroids.h"
+#include "utils/geo_decls.h"
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 #include "utils/syscache.h"
@@ -49,6 +51,8 @@
 
 #include "fdw.h"
 #include "pg-clickhouse-encode.h"
+
+#include <math.h>
 
 /* Aggregate OIDs absent from fmgroids.h on all PG versions. */
 #define F_STRING_AGG_TEXT_TEXT 3538
@@ -3269,6 +3273,38 @@ deparseByteaLiteral(StringInfo buf, Datum value) {
     appendStringInfoChar(buf, '\'');
 }
 
+/*
+ * Append shortest decimal text that reads back as original float value
+ * Ignore extra_float_digits; use forms ClickHouse accepts as Float64
+ */
+void
+chfdw_append_float_literal(StringInfo buf, double v) {
+    char num[DOUBLE_SHORTEST_DECIMAL_LEN];
+
+    if (isnan(v)) {
+        appendStringInfoString(buf, "nan");
+    } else if (isinf(v)) {
+        appendStringInfoString(buf, v < 0 ? "-inf" : "inf");
+    } else if (v == 0 && signbit(v)) {
+        appendStringInfoString(buf, "-0.");
+    } else {
+        double_to_shortest_decimal_buf(v, num);
+        appendStringInfoString(buf, num);
+    }
+}
+
+/* Shippability admits only point among geometric types */
+void
+chfdw_append_point_literal(StringInfo buf, Datum val) {
+    Point* p = DatumGetPointP(val);
+
+    appendStringInfoChar(buf, '(');
+    chfdw_append_float_literal(buf, p->x);
+    appendStringInfoChar(buf, ',');
+    chfdw_append_float_literal(buf, p->y);
+    appendStringInfoChar(buf, ')');
+}
+
 static void
 emitArrayElement(
     StringInfo buf,
@@ -3286,10 +3322,6 @@ emitArrayElement(
 
     if (element_type == BYTEAOID) {
         deparseByteaLiteral(buf, elt);
-        return;
-    }
-
-    if (pgch_append_geo_literal(buf, elt, element_type)) {
         return;
     }
 
@@ -3560,7 +3592,8 @@ deparseConst(Const* node, deparse_expr_cxt* context, int showtype) {
     } else if (node->consttype == BYTEAOID) {
         deparseByteaLiteral(buf, node->constvalue);
         goto cleanup;
-    } else if (pgch_append_geo_literal(buf, node->constvalue, node->consttype)) {
+    } else if (node->consttype == POINTOID) {
+        chfdw_append_point_literal(buf, node->constvalue);
         goto cleanup;
     } else if (deparseStringDatum(buf, node->constvalue, typoutput)) {
         goto cleanup;
